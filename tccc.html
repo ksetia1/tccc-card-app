@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TCCC Card - Speech to Text with GPT Integration</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6 font-sans">
+  <div class="max-w-3xl mx-auto bg-white shadow-md rounded-lg p-6">
+    <h2 class="text-2xl font-bold mb-4 text-center">Digital TCCC Card</h2>
+    
+    <!-- TCCC Card Fields -->
+    <div class="grid grid-cols-2 gap-4">
+      <input id="name" placeholder="Name" class="border p-2 rounded" />
+      <input id="rosterNumber" placeholder="Battle Roster Number" class="border p-2 rounded" />
+      <input id="serviceBranch" placeholder="Service Branch" class="border p-2 rounded" />
+      <input id="unit" placeholder="Unit" class="border p-2 rounded" />
+      <input id="gender" placeholder="Gender" class="border p-2 rounded" />
+      <input id="injury" placeholder="Mechanism of Injury" class="border p-2 rounded" />
+      <input id="vitals" placeholder="Vital Signs" class="border p-2 rounded col-span-2" />
+      <textarea id="treatments" placeholder="Treatments Administered" class="border p-2 rounded col-span-2"></textarea>
+    </div>
+
+    <!-- Buttons for Speech to Text -->
+    <div class="mt-4 text-center">
+      <button id="start-recording" class="bg-green-500 text-white py-2 px-4 rounded">Start Recording</button>
+      <button id="stop-recording" class="bg-red-500 text-white py-2 px-4 rounded">Stop Recording</button>
+    </div>
+
+    <!-- Loading status -->
+    <p id="status" class="text-center text-gray-600 mt-4"></p>
+  </div>
+
+<script>
+  const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+
+  let transcript = '';
+
+  document.getElementById('start-recording').onclick = () => {
+    transcript = '';
+    recognition.start();
+    document.getElementById('status').innerText = "Listening...";
+  };
+
+  document.getElementById('stop-recording').onclick = () => {
+    recognition.stop();
+    document.getElementById('status').innerText = "Processing...";
+  };
+
+  recognition.onresult = (event) => {
+    transcript = event.results[0][0].transcript;
+    document.getElementById('status').innerText = "Transcript Captured: " + transcript;
+    sendToChatGPT(transcript);
+  };
+
+  async function sendToChatGPT(text) {
+    const apiKey = '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';
+    const url = 'https://api.openai.com/v1/chat/completions';
+
+    const prompt = `
+      Extract the following TCCC details from the medic's spoken transcript:
+      - Name
+      - Battle Roster Number
+      - Service Branch
+      - Unit
+      - Gender
+      - Mechanism of Injury
+      - Vital Signs (Pulse, Blood Pressure, Respiratory Rate, Pain)
+      - Treatments Administered
+      
+      Provide the result clearly labeled in the format:
+      Name: 
+      Battle Roster Number:
+      Service Branch:
+      Unit:
+      Gender:
+      Mechanism of Injury:
+      Vital Signs:
+      Treatments Administered:
+      
+      Transcript: "${text}"
+    `;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4-turbo-preview',
+        messages: [{role: 'system', content: 'You are an assistant extracting medical data for TCCC cards.'}, {role: 'user', content: prompt}],
+        temperature: 0
+      })
+    });
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+    populateFields(content);
+  }
+
+  function populateFields(content) {
+    const lines = content.split('\n');
+    lines.forEach(line => {
+      const [key, value] = line.split(':').map(s => s.trim());
+      switch(key) {
+        case 'Name': document.getElementById('name').value = value; break;
+        case 'Battle Roster Number': document.getElementById('rosterNumber').value = value; break;
+        case 'Service Branch': document.getElementById('serviceBranch').value = value; break;
+        case 'Unit': document.getElementById('unit').value = value; break;
+        case 'Gender': document.getElementById('gender').value = value; break;
+        case 'Mechanism of Injury': document.getElementById('injury').value = value; break;
+        case 'Vital Signs': document.getElementById('vitals').value = value; break;
+        case 'Treatments Administered': document.getElementById('treatments').value = value; break;
+      }
+    });
+    document.getElementById('status').innerText = "TCCC Card Populated Successfully!";
+  }
+
+  recognition.onerror = (event) => {
+    document.getElementById('status').innerText = "Error occurred: " + event.error;
+  };
+</script>
+
+</body>
+</html>
