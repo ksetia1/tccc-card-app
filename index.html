@@ -98,6 +98,7 @@
 
     const data = await response.json();
     console.log("Status Code:", response.status); // Prints the status code
+    console.log(response.json());
     return response.json();
     const content = data.choices[0].message.content;
     populateFields(content);
